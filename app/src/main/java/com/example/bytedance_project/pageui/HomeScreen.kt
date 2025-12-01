@@ -37,6 +37,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.remember
 import androidx.compose.ui.unit.Dp
 import kotlin.random.Random
+import androidx.lifecycle.viewmodel.compose.viewModel
+import com.example.bytedance_project.viewmodel.WaterfallViewModel
+import androidx.compose.runtime.LaunchedEffect
+
 data class WaterfallItem(
     val id: Int,
     val title: String,
@@ -171,8 +175,14 @@ fun RecommendPage() {
     }
 }
 @Composable
-fun CommunityPage() {
+fun CommunityPage(
+    viewModel: WaterfallViewModel = viewModel()
+) {
     // 2. 模拟生成 50 条数据，高度随机 (100dp 到 300dp 之间)
+    // LaunchedEffect(Unit) 这里的代码只会在 Composable 第一次显示时运行一次
+    LaunchedEffect(Unit) {
+        viewModel.fetchFeed()
+    }
     val items = remember {
         List(50) { index ->
             WaterfallItem(
