@@ -20,16 +20,18 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.example.bytedance_project.pageui.HomeScreen
 
 
 @Composable
 fun MainScreen() {
     val navController = rememberNavController()
-    // 定义底部导航的列表
     val items = listOf(
         Screen.Home,
         Screen.Friends,
@@ -40,7 +42,9 @@ fun MainScreen() {
 
     Scaffold(
         bottomBar = {
-            NavigationBar {
+            NavigationBar (
+                containerColor = Color(0xFFFFFFFF), // 底部导航栏背景色（深灰）
+            ){
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentDestination = navBackStackEntry?.destination
 
@@ -52,7 +56,18 @@ fun MainScreen() {
                     val isSelected = currentDestination?.hierarchy?.any { it.route == screen.route } == true
 
                     NavigationBarItem(
-                        // --- 核心修改开始 ---
+                        colors = NavigationBarItemDefaults.colors(
+                            // 选中时图标/文字颜色 -> 黑色
+                            selectedIconColor = Color.Black,
+                            selectedTextColor = Color.Black,
+
+                            // 未选中时图标/文字颜色 -> 灰色 (淡化效果)
+                            unselectedIconColor = Color.Gray,
+                            unselectedTextColor = Color.Gray,
+
+                            // --- 核心修改 2：修改点击时的动画颜色 (指示器颜色) ---
+                            indicatorColor = Color.Transparent
+                        ),
                         icon = {
                             if (isCamera) {
                                 // 创建一个容器来画边框
@@ -133,9 +148,4 @@ fun MessagesScreen() {
 
 @Composable
 fun MeScreen() {
-}
-
-@Composable
-fun HomeScreen() {
-
 }
