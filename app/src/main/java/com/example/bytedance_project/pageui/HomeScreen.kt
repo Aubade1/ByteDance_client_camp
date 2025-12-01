@@ -36,17 +36,23 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.remember
 import androidx.compose.ui.unit.Dp
-import kotlin.random.Random
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.example.bytedance_project.viewmodel.WaterfallViewModel
 import androidx.compose.runtime.LaunchedEffect
+import com.example.bytedance_project.model.Post
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.filled.Favorite
+import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.runtime.*
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.style.TextOverflow
+import coil.compose.AsyncImage
+import com.example.bytedance_project.utils.LikeManager
 
-data class WaterfallItem(
-    val id: Int,
-    val title: String,
-    val height: Dp, // 关键：每个 Item 的高度不同
-    val color: Color
-)
 @Composable
 fun HomeScreen() {
     // 1. 定义 Tabs 数据
@@ -181,72 +187,144 @@ fun CommunityPage(
     // 2. 模拟生成 50 条数据，高度随机 (100dp 到 300dp 之间)
     // LaunchedEffect(Unit) 这里的代码只会在 Composable 第一次显示时运行一次
     LaunchedEffect(Unit) {
-        viewModel.fetchFeed()
-    }
-    val items = remember {
-        List(50) { index ->
-            WaterfallItem(
-                id = index,
-                title = "帖子标题 $index \n这就双列瀑布流效果",
-                height = Random.nextInt(150, 300).dp, // 随机高度
-                color = Color(
-                    Random.nextInt(256),
-                    Random.nextInt(256),
-                    Random.nextInt(256),
-                    255
-                )
-            )
+        if (viewModel.postList.isEmpty()) { // 防止来回切换 Tab 重复请求
+            viewModel.fetchFeed()
         }
     }
-
     // 3. 使用 LazyVerticalStaggeredGrid
     LazyVerticalStaggeredGrid(
         columns = StaggeredGridCells.Fixed(2), // 固定 2 列
         modifier = Modifier.fillMaxSize(),
-
         // 设置内容边距
         contentPadding = PaddingValues(8.dp),
-
         // 设置 Item 之间的垂直间距
         verticalItemSpacing = 8.dp,
-
         // 设置 Item 之间的水平间距
         horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
-        items(items) { item ->
-            WaterfallItemCard(item)
+        items(viewModel.postList) { post ->
+            WaterfallItemCard(post)
         }
     }
 }
 
 // 4. 定义单个卡片的样式
 @Composable
-fun WaterfallItemCard(item: WaterfallItem) {
+fun WaterfallItemCard(post: Post) {
+    val context = LocalContext.current
+
+    // --- 1. 处理点赞状态 (本地持久化) ---
+    // 使用 remember 记录当前状态，初始值从 LikeManager 读取
+    var isLiked by remember { mutableStateOf(LikeManager.isLiked(context, post.postId)) }
+    // 模拟点赞数（因为接口没给）：如果本地点赞了就+1，否则显示一个随机基数
+    val baseLikeCount = remember { (10..999).random() }
+    val displayLikeCount = if (isLiked) baseLikeCount + 1 else baseLikeCount
+
+    // --- 2. 处理图片比例 ---
+    val firstClip = post.clips?.firstOrNull()
+    val rawRatio = if (firstClip != null && firstClip.height > 0) {
+        firstClip.width.toFloat() / firstClip.height.toFloat()
+    } else {
+        1f // 默认正方形
+    }
+    // 限制比例在 3:4 (0.75) 到 4:3 (1.33) 之间
+    val aspectRatio = rawRatio.coerceIn(0.75f, 1.33f)
+
     Card(
         shape = RoundedCornerShape(8.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        elevation = CardDefaults.cardElevation(2.dp)
     ) {
         Column {
-            // 这里通常放图片，现在用彩色 Box 代替
-            // 实际开发中请使用 Coil 加载网络图片: AsyncImage(...)
-            Box(
+            // --- 作品封面 ---
+            val imageUrl = firstClip?.url
+            if (imageUrl != null){
+            AsyncImage(
+                model = firstClip?.url,
+                contentDescription = null,
+                contentScale = ContentScale.Crop,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(item.height) // 使用数据中定义的高度
-                    .background(item.color)
-            )
+                    .aspectRatio(aspectRatio) // 应用计算好的比例
+                    .background(Color.LightGray) // 加载时的占位色
+            )}
+            else {
+                // 没地址，显示一个带文字的色块
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(1.0f) // 默认正方形
+                        .background(Color(0xFFEEEEEE)), // 浅灰色背景
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("暂无图片", color = Color.Gray, fontSize = 12.sp)
+                }
+            }
 
-            // 下面的文字区域
-            Text(
-                text = item.title,
-                fontSize = 14.sp,
-                modifier = Modifier.padding(8.dp),
-                maxLines = 2,
-                lineHeight = 18.sp
-            )
+            Column(modifier = Modifier.padding(8.dp)) {
+                // --- 作品标题 (优先展示标题，没有则展示内容) ---
+                val displayText = if (!post.title.isNullOrEmpty()) post.title else post.content ?: ""
+                Text(
+                    text = displayText,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // --- 底栏：头像昵称 + 点赞 ---
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // 作者头像
+                    AsyncImage(
+                        model = post.author?.avatar,
+                        contentDescription = null,
+                        modifier = Modifier
+                            .size(20.dp)
+                            .clip(CircleShape)
+                            .background(Color.Gray),
+                        contentScale = ContentScale.Crop
+                    )
+
+                    Spacer(modifier = Modifier.width(4.dp))
+
+                    // 作者昵称
+                    Text(
+                        text = post.author?.nickname ?: "用户",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color.Gray,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f) // 占据剩余空间，把点赞挤到右边
+                    )
+
+                    // 点赞区域
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.clickable {
+                            // 点击切换状态并保存到本地
+                            isLiked = LikeManager.toggleLike(context, post.postId)
+                        }
+                    ) {
+                        Icon(
+                            imageVector = if (isLiked) Icons.Filled.Favorite else Icons.Filled.FavoriteBorder,
+                            contentDescription = "Like",
+                            tint = if (isLiked) Color.Red else Color.Gray,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(2.dp))
+                        Text(
+                            text = displayLikeCount.toString(),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = Color.Gray
+                        )
+                    }
+                }
+            }
         }
     }
 }

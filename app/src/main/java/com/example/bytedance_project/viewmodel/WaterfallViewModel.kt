@@ -1,9 +1,13 @@
 package com.example.bytedance_project.viewmodel
 
 import android.util.Log
+import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.example.bytedance_project.model.FeedResponse
+import com.example.bytedance_project.model.Post
 import com.example.bytedance_project.network.NetworkManager
+import com.google.gson.Gson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import okhttp3.HttpUrl
@@ -11,7 +15,7 @@ import okhttp3.Request
 import java.io.IOException
 
 class WaterfallViewModel : ViewModel() {
-
+    val postList = mutableStateListOf<Post>()
     // 核心方法：去服务器拉取数据
     fun fetchFeed() {
         // 使用协程在 IO 线程执行网络请求，避免阻塞主线程（导致 App 卡死）
@@ -42,29 +46,25 @@ class WaterfallViewModel : ViewModel() {
 
                 // 4. 处理结果
                 if (response.isSuccessful) {
-                    // 获取响应体中的字符串 (JSON)
-                    val responseData = response.body?.string()
+                    val jsonString = response.body?.string()
 
-                    if (responseData != null) {
-                        Log.d("WaterfallRequest", "请求成功！服务器返回数据如下：")
-                        Log.d("WaterfallRequest", responseData)
-                    } else {
-                        Log.w("WaterfallRequest", "请求成功，但返回体为空")
+                    if (jsonString != null) {
+                        // --- 核心修改：解析 JSON ---
+                        Log.d("WaterfallRequest", jsonString)
+                        val gson = Gson()
+                        val feedResponse = gson.fromJson(jsonString, FeedResponse::class.java)
+
+                        if (feedResponse.statusCode == 0) {
+                            // 切换回主线程更新 UI 数据
+                            viewModelScope.launch(Dispatchers.Main) {
+                                postList.clear() // 如果是刷新则清空，如果是加载更多则 addAll
+                                postList.addAll(feedResponse.postList)
+                            }
+                        }
                     }
-                } else {
-                    Log.e("WaterfallRequest", "服务器返回错误: code=${response.code}")
                 }
-
-                // 记得关闭 response body 避免资源泄露
-                response.close()
-
-            } catch (e: IOException) {
-                // 网络异常（断网、超时等）
-                Log.e("WaterfallRequest", "网络请求异常: ${e.message}")
-                e.printStackTrace()
             } catch (e: Exception) {
-                // 其他未知异常
-                Log.e("WaterfallRequest", "未知错误: ${e.message}")
+                Log.e("WaterfallViewModel", "Error: ${e.message}")
             }
         }
     }
