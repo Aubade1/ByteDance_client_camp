@@ -19,13 +19,29 @@ import androidx.core.view.WindowCompat
 private val DarkColorScheme = darkColorScheme(
     primary = Purple80,
     secondary = PurpleGrey80,
-    tertiary = Pink80
+    tertiary = Pink80,
+    // 定义背景和表面颜色为黑色
+    background = Color.Black,
+    surface = Color.Black,
+    onPrimary = Color.Black,
+    onSecondary = Color.Black,
+    onTertiary = Color.Black,
+    onBackground = Color.White, // 背景上的文字是白色
+    onSurface = Color.White,    // 表面上的文字是白色
 )
 
 private val LightColorScheme = lightColorScheme(
     primary = Purple40,
     secondary = PurpleGrey40,
-    tertiary = Pink40
+    tertiary = Pink40,
+    // 定义背景和表面颜色为白色
+    background = Color.White,
+    surface = Color.White,
+    onPrimary = Color.White,
+    onSecondary = Color.White,
+    onTertiary = Color.White,
+    onBackground = Color.Black, // 背景上的文字是黑色
+    onSurface = Color.Black,    // 表面上的文字是黑色
 
     /* Other default colors to override
     background = Color(0xFFFFFBFE),
@@ -58,12 +74,8 @@ fun ByteDance_projectTheme(
     if (!view.isInEditMode) {
         SideEffect {
             val window = (view.context as Activity).window
-            // 1. 强制将状态栏背景设为白色
-            window.statusBarColor = Color.White.toArgb()
-
-            // 2. 强制将状态栏图标设为黑色
-            // (true 的意思是：这是一个"亮色/浅色"的状态栏，所以系统会自动把字变黑)
-            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = true
+            window.statusBarColor = colorScheme.background.toArgb()
+            WindowCompat.getInsetsController(window, view).isAppearanceLightStatusBars = !darkTheme
         }
     }
 

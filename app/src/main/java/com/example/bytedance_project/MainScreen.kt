@@ -43,7 +43,8 @@ fun MainScreen() {
     Scaffold(
         bottomBar = {
             NavigationBar (
-                containerColor = Color(0xFFFFFFFF), // 底部导航栏背景色（深灰）
+                containerColor = MaterialTheme.colorScheme.background,
+                tonalElevation = 0.dp
             ){
                 val navBackStackEntry by navController.currentBackStackEntryAsState()
                 val currentDestination = navBackStackEntry?.destination
@@ -57,15 +58,10 @@ fun MainScreen() {
 
                     NavigationBarItem(
                         colors = NavigationBarItemDefaults.colors(
-                            // 选中时图标/文字颜色 -> 黑色
-                            selectedIconColor = Color.Black,
-                            selectedTextColor = Color.Black,
-
-                            // 未选中时图标/文字颜色 -> 灰色 (淡化效果)
+                            selectedIconColor = MaterialTheme.colorScheme.onBackground,
+                            selectedTextColor = MaterialTheme.colorScheme.onBackground,
                             unselectedIconColor = Color.Gray,
                             unselectedTextColor = Color.Gray,
-
-                            // --- 核心修改 2：修改点击时的动画颜色 (指示器颜色) ---
                             indicatorColor = Color.Transparent
                         ),
                         icon = {
@@ -85,6 +81,7 @@ fun MainScreen() {
                                     Icon(
                                         imageVector = Icons.Default.Add,
                                         contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onBackground,
                                         modifier = Modifier.size(32.dp) // 加号要比外面的框小一点
                                     )
                                 }

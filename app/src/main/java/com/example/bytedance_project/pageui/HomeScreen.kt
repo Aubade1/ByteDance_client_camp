@@ -33,6 +33,7 @@ import androidx.compose.foundation.lazy.staggeredgrid.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.remember
 import androidx.compose.ui.unit.Dp
 import kotlin.random.Random
@@ -56,16 +57,15 @@ fun HomeScreen() {
     val scope = rememberCoroutineScope()
 
     Column(modifier = Modifier.fillMaxSize()
-                              .background(Color.White)) {
+                              .background(MaterialTheme.colorScheme.background) ) {
 
         // 3. 修改为 TabRow (固定宽度，均匀分布)
         TabRow(
             selectedTabIndex = pagerState.currentPage,
             // 设置指示器颜色和位置
             indicator = {},
-            // 可以根据需要设置 TabRow 的背景色
-            containerColor = Color.White,
-            contentColor = Color.Black,
+            containerColor = MaterialTheme.colorScheme.background,
+            contentColor = MaterialTheme.colorScheme.onBackground,
             divider = {}
         ) {
             tabs.forEachIndexed { index, title ->
@@ -73,7 +73,8 @@ fun HomeScreen() {
                 val isSearchTab = (title == "搜索")
                 // 判断是否被选中
                 val isSelected = pagerState.currentPage == index
-
+                val selectedColor = MaterialTheme.colorScheme.onBackground // 动态获取黑/白
+                val unselectedColor = Color.Gray // 灰色在黑/白背景都通用
                 Tab(
                     selected = isSelected,
                     onClick = {
@@ -91,8 +92,8 @@ fun HomeScreen() {
                                 // 选中时加粗，未选中正常
                                 fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
                                 // 稍微调整字体大小以适应一行6个
-                                color = if (isSelected) Color.Black else Color.Gray,
-                                fontSize = 15.sp
+                                color = if (isSelected) selectedColor else unselectedColor,
+                                fontSize = 13.sp
                             )
                         }
                     },
@@ -101,7 +102,7 @@ fun HomeScreen() {
                             Icon(
                                 imageVector = Icons.Default.Search,
                                 contentDescription = "搜索",
-                                tint = if (isSelected) Color.Black else Color.Gray,
+                                tint = if (isSelected) selectedColor else unselectedColor,
                                 modifier = Modifier.size(24.dp) // 控制图标大小
 
                             )
@@ -118,6 +119,7 @@ fun HomeScreen() {
         HorizontalPager(
             state = pagerState,
             modifier = Modifier.fillMaxSize()
+                               .background(MaterialTheme.colorScheme.background)
         ) { page ->
             when (page) {
                 0 -> BeijingPage()
@@ -213,7 +215,9 @@ fun WaterfallItemCard(item: WaterfallItem) {
     Card(
         shape = RoundedCornerShape(8.dp),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White) // 卡片设为白色
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
     ) {
         Column {
             // 这里通常放图片，现在用彩色 Box 代替
