@@ -15,7 +15,6 @@ data class Post(
     @SerializedName("create_time") val createTime: Long,
     @SerializedName("author") val author: Author?,
     @SerializedName("clips") val clips: List<Clip>?
-    // 注意：JSON里没有 like_count，我们稍后在UI层模拟一个或在本地存
 )
 
 data class Author(

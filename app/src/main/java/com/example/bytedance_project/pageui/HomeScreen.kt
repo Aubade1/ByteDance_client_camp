@@ -42,9 +42,12 @@ import androidx.compose.runtime.LaunchedEffect
 import com.example.bytedance_project.model.Post
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
+import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.filled.Favorite
 import androidx.compose.material.icons.filled.FavoriteBorder
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.*
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
@@ -52,7 +55,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.style.TextOverflow
 import coil.compose.AsyncImage
 import com.example.bytedance_project.utils.LikeManager
-
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Surface
+import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 @Composable
 fun HomeScreen() {
     // 1. 定义 Tabs 数据
@@ -180,30 +186,104 @@ fun RecommendPage() {
         Text("这里是【推荐】的内容列表")
     }
 }
+@OptIn(ExperimentalMaterial3Api::class) // PullToRefresh 需要这个注解
 @Composable
 fun CommunityPage(
     viewModel: WaterfallViewModel = viewModel()
 ) {
-    // 2. 模拟生成 50 条数据，高度随机 (100dp 到 300dp 之间)
-    // LaunchedEffect(Unit) 这里的代码只会在 Composable 第一次显示时运行一次
-    LaunchedEffect(Unit) {
-        if (viewModel.postList.isEmpty()) { // 防止来回切换 Tab 重复请求
-            viewModel.fetchFeed()
+    val uiState = viewModel.uiState
+    val scrollState = rememberLazyStaggeredGridState()
+
+    // --- 2. 上滑加载更多检测 ---
+    // derivedStateOf 保证只在状态变化时计算，优化性能
+    val shouldLoadMore by remember {
+        derivedStateOf {
+            val layoutInfo = scrollState.layoutInfo
+            val totalItems = layoutInfo.totalItemsCount
+            if (totalItems == 0) return@derivedStateOf false
+
+            // 获取可见的最后一项的索引
+            val lastVisibleItemIndex = layoutInfo.visibleItemsInfo.lastOrNull()?.index ?: 0
+
+            // 如果看到了倒数第2个item，且没在加载，且还有更多 -> 触发加载
+            lastVisibleItemIndex >= totalItems - 2
         }
     }
-    // 3. 使用 LazyVerticalStaggeredGrid
-    LazyVerticalStaggeredGrid(
-        columns = StaggeredGridCells.Fixed(2), // 固定 2 列
-        modifier = Modifier.fillMaxSize(),
-        // 设置内容边距
-        contentPadding = PaddingValues(8.dp),
-        // 设置 Item 之间的垂直间距
-        verticalItemSpacing = 8.dp,
-        // 设置 Item 之间的水平间距
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        items(viewModel.postList) { post ->
-            WaterfallItemCard(post)
+    // LaunchedEffect(Unit) 这里的代码只会在 Composable 第一次显示时运行一次
+    LaunchedEffect(shouldLoadMore) {
+        if (shouldLoadMore) {
+            viewModel.loadMoreFeed()
+        }
+    }
+    Box(modifier = Modifier.fillMaxSize()) {
+        when {
+            // A. 首刷 Loading (页面中心转圈)
+            uiState.isLoading && viewModel.postList.isEmpty() -> {
+                CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
+            }
+
+            // B. 首刷失败 (显示错误页)
+            uiState.isError && viewModel.postList.isEmpty() -> {
+                ErrorStatePage(
+                    message = uiState.errorMessage,
+                    onRetry = { viewModel.refreshFeed(isFirstLoad = true) }
+                )
+            }
+
+            // C. 正常列表显示 (使用 PullToRefreshBox)
+            else -> {
+                // --- 核心修改：使用 PullToRefreshBox ---
+                PullToRefreshBox(
+                    isRefreshing = uiState.isRefreshing, // 直接绑定布尔值
+                    onRefresh = {
+                        viewModel.refreshFeed(isFirstLoad = false) // 绑定刷新事件
+                    },
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    // 列表放在这里面
+                    LazyVerticalStaggeredGrid(
+                        columns = StaggeredGridCells.Fixed(2),
+                        state = scrollState,
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(8.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalItemSpacing = 8.dp
+                    ) {
+                        items(viewModel.postList) { post ->
+                            WaterfallItemCard(post)
+                        }
+
+                        // 底部 Loading 条 / 没有更多提示
+                        if (viewModel.postList.isNotEmpty()) {
+                            item(span = StaggeredGridItemSpan.FullLine) {
+                                if (uiState.isLoadingMore) {
+                                    LoadingFooter()
+                                } else if (!uiState.hasMore) {
+                                    NoMoreDataFooter()
+                                } else {
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        // D. 加载更多失败的 Toast 提示 (可选)
+        // 如果列表有数据，但是加载更多失败了，弹个 Snackbar 或者 Toast
+        if (uiState.isError && viewModel.postList.isNotEmpty()) {
+            // 这里简单用 Text 模拟 Toast
+            Surface(
+                color = MaterialTheme.colorScheme.errorContainer,
+                modifier = Modifier.align(Alignment.BottomCenter).padding(16.dp),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text(
+                    "加载更多失败，请重试",
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    color = MaterialTheme.colorScheme.onErrorContainer
+                )
+            }
         }
     }
 }

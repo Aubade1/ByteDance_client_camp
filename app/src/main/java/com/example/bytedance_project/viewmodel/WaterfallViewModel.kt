@@ -1,5 +1,9 @@
 package com.example.bytedance_project.viewmodel
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateListOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import android.util.Log
 import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.ViewModel
@@ -14,18 +18,40 @@ import okhttp3.HttpUrl
 import okhttp3.Request
 import java.io.IOException
 
+
 class WaterfallViewModel : ViewModel() {
     val postList = mutableStateListOf<Post>()
     // 核心方法：去服务器拉取数据
-    fun fetchFeed() {
+    // UI 状态 (使用 Compose State)
+    var uiState by mutableStateOf(WaterfallUiState())
+        private set
+
+    // 初始化
+    init {
+        refreshFeed(isFirstLoad = true)
+    }
+    fun refreshFeed(isFirstLoad: Boolean = false) {
+        if (uiState.isLoading || uiState.isRefreshing) return
+
+        uiState = uiState.copy(
+            isLoading = isFirstLoad,
+            isRefreshing = !isFirstLoad,
+            isError = false
+        )
+
+        fetchData(isRefresh = true)
+    }
+    fun loadMoreFeed() {
+        if (uiState.isLoadingMore || !uiState.hasMore || uiState.isRefreshing || uiState.isLoading) return
+
+        uiState = uiState.copy(isLoadingMore = true)
+        fetchData(isRefresh = false)
+    }
+    private fun fetchData(isRefresh: Boolean) {
         // 使用协程在 IO 线程执行网络请求，避免阻塞主线程（导致 App 卡死）
         viewModelScope.launch(Dispatchers.IO) {
             try {
                 Log.d("WaterfallRequest", "开始构建 OkHttp 请求...")
-
-                // 1. 构建 URL 和参数
-                // 目标地址: https://college-training-camp.bytedance.com/feed/
-                // 参数: count=10, accept_video_clip=false
                 val urlBuilder = HttpUrl.Builder()
                     .scheme("https")
                     .host("college-training-camp.bytedance.com")
@@ -47,25 +73,49 @@ class WaterfallViewModel : ViewModel() {
                 // 4. 处理结果
                 if (response.isSuccessful) {
                     val jsonString = response.body?.string()
-
                     if (jsonString != null) {
-                        // --- 核心修改：解析 JSON ---
-                        Log.d("WaterfallRequest", jsonString)
                         val gson = Gson()
                         val feedResponse = gson.fromJson(jsonString, FeedResponse::class.java)
 
                         if (feedResponse.statusCode == 0) {
-                            // 切换回主线程更新 UI 数据
                             viewModelScope.launch(Dispatchers.Main) {
-                                postList.clear() // 如果是刷新则清空，如果是加载更多则 addAll
-                                postList.addAll(feedResponse.postList)
+                                if (isRefresh) {
+                                    postList.clear()
+                                }
+                                // 过滤掉重复数据 (可选，防止服务器返回重复ID导致Crash)
+                                val newPosts = feedResponse.postList.filter { newPost ->
+                                    postList.none { it.postId == newPost.postId }
+                                }
+                                postList.addAll(newPosts)
+                                uiState = uiState.copy(
+                                    isLoading = false,
+                                    isRefreshing = false,
+                                    isLoadingMore = false,
+                                    isError = false,
+                                    hasMore = feedResponse.hasMore == 1 // 假设 1 代表有更多
+                                )
                             }
+                        }else {
+                            handleError("服务器状态码异常: ${feedResponse.statusCode}")
                         }
+                    } else{
+                        handleError("网络请求失败 code: ${response.code}")
                     }
                 }
             } catch (e: Exception) {
-                Log.e("WaterfallViewModel", "Error: ${e.message}")
+                handleError("发生错误: ${e.message}")
             }
+        }
+    }
+    private fun handleError(msg: String) {
+        viewModelScope.launch(Dispatchers.Main) {
+            uiState = uiState.copy(
+                isLoading = false,
+                isRefreshing = false,
+                isLoadingMore = false,
+                isError = true, // 标记为失败
+                errorMessage = msg
+            )
         }
     }
 }
