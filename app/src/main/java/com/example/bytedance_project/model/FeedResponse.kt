@@ -14,7 +14,9 @@ data class Post(
     @SerializedName("content") val content: String?,
     @SerializedName("create_time") val createTime: Long,
     @SerializedName("author") val author: Author?,
-    @SerializedName("clips") val clips: List<Clip>?
+    @SerializedName("clips") val clips: List<Clip>?,
+    @SerializedName("hashtag") val hashtags: List<Hashtag>?,
+    val mockLikeCount: Int = (10..1000).random()
 )
 
 data class Author(
@@ -28,4 +30,8 @@ data class Clip(
     @SerializedName("width") val width: Int,
     @SerializedName("height") val height: Int,
     @SerializedName("url") val url: String
+)
+data class Hashtag(
+    @SerializedName("start") val start: Int, // 起始下标
+    @SerializedName("end") val end: Int      // 结束下标
 )

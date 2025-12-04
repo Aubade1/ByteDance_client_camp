@@ -27,10 +27,12 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.example.bytedance_project.pageui.HomeScreen
-
+import com.example.bytedance_project.model.Post
 
 @Composable
-fun MainScreen() {
+fun MainScreen(
+    navigateToDetail: (Post) -> Unit
+) {
     val navController = rememberNavController()
     val items = listOf(
         Screen.Home,
@@ -39,6 +41,8 @@ fun MainScreen() {
         Screen.Messages,
         Screen.Me
     )
+
+
 
     Scaffold(
         bottomBar = {
@@ -116,17 +120,21 @@ fun MainScreen() {
             }
         }
     ) { innerPadding ->
-        // --- 修改点 B：必须为新加的页面添加 composable 目标，否则点击会崩溃 ---
         NavHost(
             navController = navController,
             startDestination = Screen.Home.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(Screen.Home.route) { HomeScreen() }       // 替换为你真实的 HomeScreen()
-            composable(Screen.Friends.route) { FriendsScreen() }    // 替换为你真实的
-            composable(Screen.Camera.route) { CameraScreen() }     // 替换为你真实的
-            composable(Screen.Messages.route) { MessagesScreen() }   // 替换为你真实的
-            composable(Screen.Me.route) { MeScreen()  }     // 替换为你真实的
+            composable(Screen.Home.route) { HomeScreen(
+                    // 当点击瀑布流时，调用父级传进来的方法
+                    onPostClick = { post ->
+                        navigateToDetail(post)
+                    }
+            ) }
+            composable(Screen.Friends.route) { FriendsScreen() }
+            composable(Screen.Camera.route) { CameraScreen() }
+            composable(Screen.Messages.route) { MessagesScreen() }
+            composable(Screen.Me.route) { MeScreen()  }
         }
     }
 }

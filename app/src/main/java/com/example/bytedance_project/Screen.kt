@@ -21,4 +21,10 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector)
 
     // 5. 我
     object Me : Screen("me", "我", Icons.Filled.Person)
+    object Detail : Screen("detail/{postJson}", "详情", Icons.Filled.Home)
+
+    // 辅助方法：生成带参数的路由地址
+    fun createRoute(postJson: String): String {
+        return "detail/$postJson"
+    }
 }

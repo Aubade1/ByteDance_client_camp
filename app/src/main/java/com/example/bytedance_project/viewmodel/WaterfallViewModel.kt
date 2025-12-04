@@ -84,7 +84,14 @@ class WaterfallViewModel : ViewModel() {
                                 }
                                 // 过滤掉重复数据 (可选，防止服务器返回重复ID导致Crash)
                                 val newPosts = feedResponse.postList.filter { newPost ->
-                                    postList.none { it.postId == newPost.postId }
+                                    // 条件 1: 必须去重
+                                    val isNotDuplicate = postList.none { it.postId == newPost.postId }
+
+                                    // 条件 2: 必须包含图片 (clips 不为 null 且 不为空)
+                                    val hasImages = !newPost.clips.isNullOrEmpty()
+
+                                    // 同时满足才保留
+                                    isNotDuplicate && hasImages
                                 }
                                 postList.addAll(newPosts)
                                 uiState = uiState.copy(

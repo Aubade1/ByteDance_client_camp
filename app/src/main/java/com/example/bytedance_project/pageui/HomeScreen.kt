@@ -60,7 +60,9 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Surface
 import androidx.compose.material3.pulltorefresh.rememberPullToRefreshState
 @Composable
-fun HomeScreen() {
+fun HomeScreen(
+    onPostClick: (Post) -> Unit
+) {
     // 1. 定义 Tabs 数据
     val tabs = listOf("北京", "团购", "关注", "社区", "推荐", "搜索")
 
@@ -141,7 +143,7 @@ fun HomeScreen() {
                 0 -> BeijingPage()
                 1 -> TuangouPage()
                 2 -> SubscribePage()
-                3 -> CommunityPage()
+                3 -> CommunityPage(onPostClick = onPostClick)
                 4 -> RecommendPage()
                 5 -> SearchPage() // 这里对应搜索页的内容
                 else -> Text("未知页面")
@@ -189,7 +191,8 @@ fun RecommendPage() {
 @OptIn(ExperimentalMaterial3Api::class) // PullToRefresh 需要这个注解
 @Composable
 fun CommunityPage(
-    viewModel: WaterfallViewModel = viewModel()
+    viewModel: WaterfallViewModel = viewModel(),
+            onPostClick: (Post) -> Unit
 ) {
     val uiState = viewModel.uiState
     val scrollState = rememberLazyStaggeredGridState()
@@ -250,7 +253,8 @@ fun CommunityPage(
                         verticalItemSpacing = 8.dp
                     ) {
                         items(viewModel.postList) { post ->
-                            WaterfallItemCard(post)
+                            WaterfallItemCard(post,
+                                onClick = { onPostClick(post) })
                         }
 
                         // 底部 Loading 条 / 没有更多提示
@@ -290,14 +294,14 @@ fun CommunityPage(
 
 // 4. 定义单个卡片的样式
 @Composable
-fun WaterfallItemCard(post: Post) {
+fun WaterfallItemCard(post: Post,onClick: () -> Unit) {
     val context = LocalContext.current
 
     // --- 1. 处理点赞状态 (本地持久化) ---
     // 使用 remember 记录当前状态，初始值从 LikeManager 读取
     var isLiked by remember { mutableStateOf(LikeManager.isLiked(context, post.postId)) }
     // 模拟点赞数（因为接口没给）：如果本地点赞了就+1，否则显示一个随机基数
-    val baseLikeCount = remember { (10..999).random() }
+    val baseLikeCount = post.mockLikeCount
     val displayLikeCount = if (isLiked) baseLikeCount + 1 else baseLikeCount
 
     // --- 2. 处理图片比例 ---
@@ -313,7 +317,9 @@ fun WaterfallItemCard(post: Post) {
     Card(
         shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-        elevation = CardDefaults.cardElevation(2.dp)
+        elevation = CardDefaults.cardElevation(2.dp),
+        modifier = Modifier
+            .clickable { onClick() } // 点击卡片触发
     ) {
         Column {
             // --- 作品封面 ---
